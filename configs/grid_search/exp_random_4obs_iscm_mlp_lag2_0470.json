@@ -1,0 +1,32 @@
+{
+  "name": "exp_random_4obs_iscm_mlp_lag2",
+  "output_dir": "outputs/grid_search",
+  "algorithms": [
+    "pcmci",
+    "pcmciplus",
+    "pc_unrolled",
+    "granger",
+    "varlingam"
+  ],
+  "n_latent": 0,
+  "seed": 42,
+  "save_plots": false,
+  "use_cycle_postprocess": true,
+  "pcmci_alpha": 0.05,
+  "pc_alpha": 0.05,
+  "noise_scale": 1.0,
+  "fp_tol": 1e-06,
+  "fp_max_iter": 3000,
+  "damping": 1.0,
+  "burn_in": 50,
+  "scm_kind": "iscm",
+  "nonlinear": "mlp",
+  "noise_kind": "skew",
+  "graph_type": "random",
+  "n_observed": 4,
+  "edge_prob": 0.2,
+  "max_lag": 2,
+  "feedback_strength": 0.2,
+  "weight_scale": 0.5,
+  "length": 1000
+}
