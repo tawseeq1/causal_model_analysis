@@ -18,7 +18,17 @@ def plot_algorithm_comparison(df: pd.DataFrame, out_dir: Path) -> None:
     """A. Algorithm Comparison: Average F1, SHD, Runtime across all conditions."""
     df_algo = df[df["postprocessed"] == False]  # Base comparison without postprocessing
     
-    metrics = {"f1": "F1 Score (Higher=Better)", "shd": "SHD (Lower=Better)", "runtime_sec": "Runtime (Seconds)"}
+    metrics = {
+        "f1": "F1 Score (Higher=Better)",
+        "precision": "Precision (Higher=Better)",
+        "recall": "Recall (Higher=Better)",
+        "orientation_accuracy": "Orientation Accuracy (Higher=Better)",
+        "shd": "SHD (Lower=Better)",
+        "effect_mae": "Effect MAE (Lower=Better)",
+        "effect_rmse": "Effect RMSE (Lower=Better)",
+        "n_predicted_edges": "Predicted Edges",
+        "runtime_sec": "Runtime (Seconds)"
+    }
     for metric, ylabel in metrics.items():
         if metric not in df.columns:
             continue
@@ -35,36 +45,41 @@ def plot_sensitivity_analysis(df: pd.DataFrame, out_dir: Path) -> None:
     """B. Sensitivity Analysis: Graph Size, Sample Size, Noise x Nonlinearity."""
     df_algo = df[df["postprocessed"] == False]
 
-    # Lineplot: Performance vs Graph Size
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=df_algo, x="n_observed", y="f1", hue="algorithm", marker="o", errorbar="se")
-    plt.title("Performance vs Graph Size (Number of Variables)")
-    plt.ylabel("F1 Score")
-    plt.xlabel("Number of Observed Variables")
-    plt.legend(title="Algorithm")
-    plt.tight_layout()
-    plt.savefig(out_dir / "sensitivity_graph_size.png", dpi=300)
-    plt.close()
-
-    # Lineplot: Performance vs Sample length
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=df_algo, x="length", y="f1", hue="algorithm", marker="s", errorbar="se")
-    plt.title("Performance vs Time Series Length")
-    plt.ylabel("F1 Score")
-    plt.xlabel("Sample Size (Length)")
-    plt.tight_layout()
-    plt.savefig(out_dir / "sensitivity_sample_length.png", dpi=300)
-    plt.close()
-
-    # Heatmap: Noise x Nonlinearity (Average F1 across top algorithms)
-    pivot_df = df_algo.pivot_table(index="noise_kind", columns="nonlinear", values="f1", aggfunc="mean")
-    if not pivot_df.empty:
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(pivot_df, annot=True, cmap="YlGnBu", fmt=".3f", vmin=0, vmax=1)
-        plt.title("Average F1 Score: Noise Type vs Nonlinearity")
+    key_metrics = ["f1", "shd", "orientation_accuracy"]
+    
+    for m in key_metrics:
+        if m not in df.columns: continue
+        
+        # Lineplot: Performance vs Graph Size
+        plt.figure(figsize=(10, 6))
+        sns.lineplot(data=df_algo, x="n_observed", y=m, hue="algorithm", marker="o", errorbar="se")
+        plt.title(f"Performance vs Graph Size ({m.upper()})")
+        plt.ylabel(m.upper())
+        plt.xlabel("Number of Observed Variables")
+        plt.legend(title="Algorithm")
         plt.tight_layout()
-        plt.savefig(out_dir / "sensitivity_heatmap_noise_nonlinear.png", dpi=300)
+        plt.savefig(out_dir / f"sensitivity_graph_size_{m}.png", dpi=300)
         plt.close()
+    
+        # Lineplot: Performance vs Sample length
+        plt.figure(figsize=(10, 6))
+        sns.lineplot(data=df_algo, x="length", y=m, hue="algorithm", marker="s", errorbar="se")
+        plt.title(f"Performance vs Time Series Length ({m.upper()})")
+        plt.ylabel(m.upper())
+        plt.xlabel("Sample Size (Length)")
+        plt.tight_layout()
+        plt.savefig(out_dir / f"sensitivity_sample_length_{m}.png", dpi=300)
+        plt.close()
+    
+        # Heatmap: Noise x Nonlinearity (Average across top algorithms)
+        pivot_df = df_algo.pivot_table(index="noise_kind", columns="nonlinear", values=m, aggfunc="mean")
+        if not pivot_df.empty:
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(pivot_df, annot=True, cmap="YlGnBu", fmt=".3f")
+            plt.title(f"Average {m.upper()}: Noise Type vs Nonlinearity")
+            plt.tight_layout()
+            plt.savefig(out_dir / f"sensitivity_heatmap_{m}_noise_nonlinear.png", dpi=300)
+            plt.close()
 
 
 def plot_scm_comparison(df: pd.DataFrame, out_dir: Path) -> None:
@@ -73,14 +88,17 @@ def plot_scm_comparison(df: pd.DataFrame, out_dir: Path) -> None:
         return
         
     df_algo = df[df["postprocessed"] == False]
-    plt.figure(figsize=(12, 6))
-    sns.barplot(data=df_algo, x="algorithm", y="f1", hue="scm_kind", capsize=0.1)
-    plt.title("SCM Comparison: Classical vs ISCM (F1 Score)")
-    plt.ylabel("F1 Score")
-    plt.legend(title="SCM Kind")
-    plt.tight_layout()
-    plt.savefig(out_dir / "scm_comparison_f1.png", dpi=300)
-    plt.close()
+    
+    for m in ["f1", "shd", "orientation_accuracy"]:
+        if m not in df.columns: continue
+        plt.figure(figsize=(12, 6))
+        sns.barplot(data=df_algo, x="algorithm", y=m, hue="scm_kind", capsize=0.1)
+        plt.title(f"SCM Comparison: Classical vs ISCM ({m.upper()})")
+        plt.ylabel(f"{m.upper()}")
+        plt.legend(title="SCM Kind")
+        plt.tight_layout()
+        plt.savefig(out_dir / f"scm_comparison_{m}.png", dpi=300)
+        plt.close()
 
 
 def plot_failure_modes(df: pd.DataFrame, out_dir: Path) -> None:
@@ -90,25 +108,28 @@ def plot_failure_modes(df: pd.DataFrame, out_dir: Path) -> None:
         return
         
     df_algo = df[df["postprocessed"] == False]
-    plt.figure(figsize=(10, 6))
-    sns.boxplot(data=df_algo, x="graph_type", y="f1", hue="algorithm")
-    plt.title("Failure Mode Detection: F1 by Underlying Graph Topology")
-    plt.ylabel("F1 Score")
-    plt.tight_layout()
-    plt.savefig(out_dir / "failure_graph_types.png", dpi=300)
-    plt.close()
     
-    # Special pointplot for cycles: Impact of Feedback Strength
-    cycles_only = df_algo[df_algo["graph_type"] == "cycle"]
-    if not cycles_only.empty and "feedback_strength" in cycles_only.columns:
+    for m in ["f1", "shd"]:
+        if m not in df.columns: continue
         plt.figure(figsize=(10, 6))
-        sns.lineplot(data=cycles_only, x="feedback_strength", y="f1", hue="algorithm", marker="X")
-        plt.title("Cycle Graph Failure Mode: F1 vs Feedback Strength")
-        plt.ylabel("F1 Score")
-        plt.xlabel("Feedback Strength")
+        sns.boxplot(data=df_algo, x="graph_type", y=m, hue="algorithm")
+        plt.title(f"Failure Mode Detection: {m.upper()} by Underlying Graph Topology")
+        plt.ylabel(f"{m.upper()}")
         plt.tight_layout()
-        plt.savefig(out_dir / "failure_cycles_feedback.png", dpi=300)
+        plt.savefig(out_dir / f"failure_graph_types_{m}.png", dpi=300)
         plt.close()
+        
+        # Special pointplot for cycles: Impact of Feedback Strength
+        cycles_only = df_algo[df_algo["graph_type"] == "cycle"]
+        if not cycles_only.empty and "feedback_strength" in cycles_only.columns:
+            plt.figure(figsize=(10, 6))
+            sns.lineplot(data=cycles_only, x="feedback_strength", y=m, hue="algorithm", marker="X")
+            plt.title(f"Cycle Graph Failure Mode: {m.upper()} vs Feedback Strength")
+            plt.ylabel(f"{m.upper()}")
+            plt.xlabel("Feedback Strength")
+            plt.tight_layout()
+            plt.savefig(out_dir / f"failure_cycles_feedback_{m}.png", dpi=300)
+            plt.close()
 
 
 def main() -> None:

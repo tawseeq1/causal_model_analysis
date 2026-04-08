@@ -14,17 +14,38 @@ from pathlib import Path
 
 
 GRID = {
+    # Core modeling components (Baseline vs Complex)
     "scm_kind": ["classical", "iscm"],
-    "nonlinear": ["linear", "poly", "mlp"],
-    "noise_kind": ["gaussian", "laplace", "uniform", "skew"],
-    "graph_type": ["random", "chain", "cycle"],
-    "n_observed": [4, 6, 8],
+    "nonlinear": ["linear", "mlp"],
+    
+    # Noise distribution (Gaussian vs Non-Gaussian for algorithms like LiNGAM)
+    "noise_kind": ["gaussian", "laplace"],
+    
+    # Structure (Standard vs Feedback)
+    "graph_type": ["random", "cycle"],
+    
+    # Fixed parameters (reduced to 1 option to kill combinatorial explosion)
+    "n_observed": [5],
     "edge_prob": [0.2],
-    "max_lag": [1, 2, 3, 4],
+    "max_lag": [2],
     "feedback_strength": [0.2],
     "weight_scale": [0.5],
-    "length": [500, 1000, 1500, 2000],
+    
+    # Sample complexity (Small vs Large data regime)
+    "length": [500, 2000],
 }
+# GRID = {
+#     "scm_kind": ["classical", "iscm"],
+#     "nonlinear": ["linear", "poly", "mlp"],
+#     "noise_kind": ["gaussian", "laplace", "uniform", "skew"],
+#     "graph_type": ["random", "chain", "cycle"],
+#     "n_observed": [4, 6, 8],
+#     "edge_prob": [0.2],
+#     "max_lag": [1, 2, 3, 4],
+#     "feedback_strength": [0.2],
+#     "weight_scale": [0.5],
+#     "length": [500, 1000, 1500, 2000],
+# }
 
 
 def generate_grid_dicts() -> list[dict]:
@@ -47,7 +68,7 @@ def build_config(params: dict) -> dict:
         "algorithms": ["pcmci", "pcmciplus", "pc_unrolled", "granger", "varlingam"],
         "n_latent": 0,
         "seed": 42,  # Fixed seed for reproducibility initially, could be dynamic
-        "save_plots": False,  # Save plots on individual runs -> disabled for massive grids to save space
+        "save_plots": True,  # NOW ENABLED! Generates truth and predicted graph images per run
         "use_cycle_postprocess": True,
         "pcmci_alpha": 0.05,
         "pc_alpha": 0.05,
