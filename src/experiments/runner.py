@@ -18,6 +18,7 @@ from algorithms.pcmci_plus_wrapper import PCMCIPlusWrapper
 from algorithms.pcmci_wrapper import PCMCIWrapper
 from data.synthetic_dataset import SyntheticDatasetConfig, build_synthetic_dataset
 from experiments.config_loader import ExperimentConfig
+from graph.graph_representation import LaggedAdjacencyGraph
 from graph.metrics import GraphMetricsResult, compare_graphs
 from postprocessing.cycle_detection import CycleAwarePostProcessor
 from utils.seed import set_global_seed
@@ -26,6 +27,7 @@ from visualization.plots import (
     plot_lagged_graph_nx,
     plot_metrics_summary,
     plot_runtime_bar,
+    plot_metric_bar,
 )
 
 
@@ -103,8 +105,24 @@ class ExperimentRunner:
             runtime = time.perf_counter() - t0
             pred = model.get_graph()
             w_pred = model.get_edge_weights()
+            w_pred_graph = None
+            if w_pred is not None:
+                w_pred_graph = LaggedAdjacencyGraph(
+                    n_vars=truth.n_vars,
+                    max_lag=truth.max_lag,
+                    adjacency=w_pred,
+                    var_names=truth.var_names
+                )
 
-            metrics = compare_graphs(truth, pred, weight_truth=None, weight_pred=w_pred)
+            weight_truth = None
+            if hasattr(_scm, "weights"):
+                weight_truth = LaggedAdjacencyGraph(
+                    n_vars=truth.n_vars,
+                    max_lag=truth.max_lag,
+                    adjacency=_scm.weights,
+                    var_names=truth.var_names
+                )
+            metrics = compare_graphs(truth, pred, weight_truth=weight_truth, weight_pred=w_pred_graph)
             row = self._metrics_to_row(
                 algo,
                 metrics,
@@ -148,6 +166,9 @@ class ExperimentRunner:
         meta_path.write_text(json.dumps(asdict(self.cfg), indent=2), encoding="utf-8")
         if self.cfg.save_plots:
             plot_metrics_summary(df, out_dir / "metrics_prf.png", title=f"{self.cfg.name} ({self.cfg.scm_kind})")
+            plot_metric_bar(df, "shd", out_dir / "metrics_shd.png", title=f"{self.cfg.name} ({self.cfg.scm_kind}) - SHD", ylabel="SHD (Lower=Better)")
+            plot_metric_bar(df, "orientation_accuracy", out_dir / "metrics_orientation.png", title=f"{self.cfg.name} ({self.cfg.scm_kind}) - Orientation", ylabel="Orientation Acc (Higher=Better)")
+            plot_metric_bar(df, "effect_rmse", out_dir / "metrics_rmse.png", title=f"{self.cfg.name} ({self.cfg.scm_kind}) - RMSE", ylabel="RMSE (Lower=Better)")
             plot_runtime_bar(df, out_dir / "metrics_runtime.png", title=f"{self.cfg.name} ({self.cfg.scm_kind})")
         return df
 

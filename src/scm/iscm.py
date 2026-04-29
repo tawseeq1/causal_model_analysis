@@ -47,7 +47,9 @@ class ISCM(BaseSCM):
     @classmethod
     def from_classical(cls, scm: ClassicalSCM, cfg: Optional[ISCMConfig] = None) -> "ISCM":
         """Share equation topology with a classical SCM."""
-        return cls(scm.equations, latent_indices=list(scm.latent_indices), cfg=cfg)
+        obj = cls(scm.equations, latent_indices=list(scm.latent_indices), cfg=cfg)
+        obj.weights = scm.weights
+        return obj
 
     def _standardize(self, i: int, values: np.ndarray) -> np.ndarray:
         v = np.asarray(values, dtype=float)

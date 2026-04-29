@@ -123,3 +123,28 @@ def plot_runtime_bar(df: pd.DataFrame, path: Path, title: str = "") -> None:
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
+
+
+def plot_metric_bar(df: pd.DataFrame, metric: str, path: Path, title: str = "", ylabel: str = "") -> None:
+    """Save a bar chart for an arbitrary single metric."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if df.empty or metric not in df.columns:
+        return
+    work = df.copy()
+    if "postprocessed" in work.columns:
+        work = work[work["postprocessed"].astype(bool) == False]
+    if work.empty:
+        work = df.copy()
+    labs = work["algorithm"].astype(str).tolist()
+    x = np.arange(len(labs))
+    fig, ax = plt.subplots(figsize=(max(8, len(labs) * 0.8), 4.5))
+    ax.bar(x, work[metric].to_numpy(), color="#999933")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labs, rotation=35, ha="right")
+    ax.set_ylabel(ylabel or metric.capitalize())
+    ax.set_title(title or f"Algorithm {metric}")
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)

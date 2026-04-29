@@ -47,7 +47,7 @@ def aggregate_results(runs_root: Path) -> pd.DataFrame:
         meta_keys = [
             "name", "scm_kind", "nonlinear", "noise_kind", "graph_type",
             "n_observed", "edge_prob", "max_lag", "feedback_strength",
-            "weight_scale", "length", "seed"
+            "weight_scale", "length", "seed", "varied_var"
         ]
 
         for k in meta_keys:
@@ -97,7 +97,7 @@ def main() -> None:
     # The grouping keys are essentially everything except the specific seed and metrics.
     group_keys = [
         "algorithm", "scm_kind", "nonlinear", "noise_kind", "graph_type",
-        "n_observed", "edge_prob", "max_lag", "feedback_strength", "weight_scale", "length", "postprocessed"
+        "n_observed", "edge_prob", "max_lag", "feedback_strength", "weight_scale", "length", "postprocessed", "varied_var"
     ]
     
     # Existing metrics

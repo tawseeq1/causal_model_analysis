@@ -10,15 +10,6 @@ from algorithms.base import CausalDiscoveryModel
 from graph.graph_representation import LaggedAdjacencyGraph
 
 
-def _tigramite_link_to_weight(link: object) -> float:
-    s = str(link).strip()
-    if s in ("",):
-        return 0.0
-    if s in ("-->", "<--"):
-        return 1.0
-    return 0.5
-
-
 class PCMCIPlusWrapper(CausalDiscoveryModel):
     """PCMCI+ extends PCMCI with orientation among contemporaneous parents."""
 
@@ -71,12 +62,19 @@ class PCMCIPlusWrapper(CausalDiscoveryModel):
         self._results = results
         graph = results["graph"]
         val_matrix = results["val_matrix"]
-        self._val_matrix = val_matrix
         adj = np.zeros((n, n, self.max_lag + 1), dtype=float)
+        val_adj = np.zeros((n, n, self.max_lag + 1), dtype=float)
         for i in range(n):
             for j in range(n):
                 for ell in range(self.max_lag + 1):
-                    adj[i, j, ell] = _tigramite_link_to_weight(graph[i, j, ell])
+                    val = str(graph[i, j, ell]).strip()
+                    if val == "-->":
+                        adj[j, i, ell] = 1.0
+                        val_adj[j, i, ell] = val_matrix[i, j, ell]
+                    elif val in ("o-o", "x-x"):
+                        adj[j, i, ell] = 0.5
+                        val_adj[j, i, ell] = val_matrix[i, j, ell]
+        self._val_matrix = val_adj
         self._graph = LaggedAdjacencyGraph(n_vars=n, max_lag=self.max_lag, adjacency=adj, var_names=var_names)
 
     def get_graph(self) -> LaggedAdjacencyGraph:

@@ -1,4 +1,4 @@
-"""Generates rigorous statistical analysis and visualizations from aggregated results.
+"""Generates statistical analysis and visualizations from aggregated results.
 
 Produces bar plots, line plots, heatmaps, and boxplots analyzing the 
 sensitivity, SCM behavior, and failure modes of causal discovery algorithms.
@@ -15,8 +15,12 @@ import seaborn as sns
 
 
 def plot_algorithm_comparison(df: pd.DataFrame, out_dir: Path) -> None:
-    """A. Algorithm Comparison: Average F1, SHD, Runtime across all conditions."""
-    df_algo = df[df["postprocessed"] == False]  # Base comparison without postprocessing
+    """A. Algorithm Comparison: Average metrics across the Base Configuration."""
+    # We use the 'base' config runs to compare the overall algorithm performance
+    df_algo = df[(df["postprocessed"] == False) & (df["varied_var"] == "base")]
+    if df_algo.empty:
+        # Fallback if no specific 'base' found
+        df_algo = df[df["postprocessed"] == False]
     
     metrics = {
         "f1": "F1 Score (Higher=Better)",
@@ -34,101 +38,56 @@ def plot_algorithm_comparison(df: pd.DataFrame, out_dir: Path) -> None:
             continue
         plt.figure(figsize=(10, 6))
         sns.barplot(data=df_algo, x="algorithm", y=metric, capsize=0.1, errorbar="sd")
-        plt.title(f"Algorithm Comparison: {ylabel}")
+        plt.title(f"General Case: {ylabel}")
         plt.ylabel(ylabel)
         plt.tight_layout()
         plt.savefig(out_dir / f"algo_comparison_{metric}.png", dpi=300)
         plt.close()
 
 
-def plot_sensitivity_analysis(df: pd.DataFrame, out_dir: Path) -> None:
-    """B. Sensitivity Analysis: Graph Size, Sample Size, Noise x Nonlinearity."""
+def plot_ablation_studies(df: pd.DataFrame, out_dir: Path) -> None:
+    """B. Ablation Studies: Plot the effect of each of the 10 variables independently."""
     df_algo = df[df["postprocessed"] == False]
 
-    key_metrics = ["f1", "shd", "orientation_accuracy"]
-    
-    for m in key_metrics:
-        if m not in df.columns: continue
-        
-        # Lineplot: Performance vs Graph Size
-        plt.figure(figsize=(10, 6))
-        sns.lineplot(data=df_algo, x="n_observed", y=m, hue="algorithm", marker="o", errorbar="se")
-        plt.title(f"Performance vs Graph Size ({m.upper()})")
-        plt.ylabel(m.upper())
-        plt.xlabel("Number of Observed Variables")
-        plt.legend(title="Algorithm")
-        plt.tight_layout()
-        plt.savefig(out_dir / f"sensitivity_graph_size_{m}.png", dpi=300)
-        plt.close()
-    
-        # Lineplot: Performance vs Sample length
-        plt.figure(figsize=(10, 6))
-        sns.lineplot(data=df_algo, x="length", y=m, hue="algorithm", marker="s", errorbar="se")
-        plt.title(f"Performance vs Time Series Length ({m.upper()})")
-        plt.ylabel(m.upper())
-        plt.xlabel("Sample Size (Length)")
-        plt.tight_layout()
-        plt.savefig(out_dir / f"sensitivity_sample_length_{m}.png", dpi=300)
-        plt.close()
-    
-        # Heatmap: Noise x Nonlinearity (Average across top algorithms)
-        pivot_df = df_algo.pivot_table(index="noise_kind", columns="nonlinear", values=m, aggfunc="mean")
-        if not pivot_df.empty:
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(pivot_df, annot=True, cmap="YlGnBu", fmt=".3f")
-            plt.title(f"Average {m.upper()}: Noise Type vs Nonlinearity")
-            plt.tight_layout()
-            plt.savefig(out_dir / f"sensitivity_heatmap_{m}_noise_nonlinear.png", dpi=300)
-            plt.close()
+    # The 10 variables we varied
+    variables = [
+        "scm_kind", "nonlinear", "noise_kind", "graph_type",
+        "n_observed", "edge_prob", "max_lag", "feedback_strength",
+        "weight_scale", "length"
+    ]
 
+    key_metrics = ["f1", "shd"]
 
-def plot_scm_comparison(df: pd.DataFrame, out_dir: Path) -> None:
-    """C. SCM Comparison: Classical vs ISCM over identical algorithms."""
-    if "scm_kind" not in df.columns:
-        return
+    for var in variables:
+        # To see the true effect of `var`, we only look at rows where `var` was the ONE thing varied,
+        # OR the row is the 'base' row (where nothing was varied, so it serves as the control point).
+        ablation_df = df_algo[(df_algo["varied_var"] == var) | (df_algo["varied_var"] == "base")]
         
-    df_algo = df[df["postprocessed"] == False]
-    
-    for m in ["f1", "shd", "orientation_accuracy"]:
-        if m not in df.columns: continue
-        plt.figure(figsize=(12, 6))
-        sns.barplot(data=df_algo, x="algorithm", y=m, hue="scm_kind", capsize=0.1)
-        plt.title(f"SCM Comparison: Classical vs ISCM ({m.upper()})")
-        plt.ylabel(f"{m.upper()}")
-        plt.legend(title="SCM Kind")
-        plt.tight_layout()
-        plt.savefig(out_dir / f"scm_comparison_{m}.png", dpi=300)
-        plt.close()
+        if ablation_df.empty or ablation_df[var].nunique() <= 1:
+            continue
 
-
-def plot_failure_modes(df: pd.DataFrame, out_dir: Path) -> None:
-    """D. Failure Modes: Cycles, Post-processing drops, Feedback Strength."""
-    # Boxplot: Performance across Graph Types (Highlighting Cycles vs Hubs vs Random)
-    if "graph_type" not in df.columns:
-        return
-        
-    df_algo = df[df["postprocessed"] == False]
-    
-    for m in ["f1", "shd"]:
-        if m not in df.columns: continue
-        plt.figure(figsize=(10, 6))
-        sns.boxplot(data=df_algo, x="graph_type", y=m, hue="algorithm")
-        plt.title(f"Failure Mode Detection: {m.upper()} by Underlying Graph Topology")
-        plt.ylabel(f"{m.upper()}")
-        plt.tight_layout()
-        plt.savefig(out_dir / f"failure_graph_types_{m}.png", dpi=300)
-        plt.close()
-        
-        # Special pointplot for cycles: Impact of Feedback Strength
-        cycles_only = df_algo[df_algo["graph_type"] == "cycle"]
-        if not cycles_only.empty and "feedback_strength" in cycles_only.columns:
+        for m in key_metrics:
+            if m not in df.columns: 
+                continue
+            
             plt.figure(figsize=(10, 6))
-            sns.lineplot(data=cycles_only, x="feedback_strength", y=m, hue="algorithm", marker="X")
-            plt.title(f"Cycle Graph Failure Mode: {m.upper()} vs Feedback Strength")
-            plt.ylabel(f"{m.upper()}")
-            plt.xlabel("Feedback Strength")
+            
+            # Check if the variable is categorical or continuous to choose the plot type
+            is_numeric = pd.api.types.is_numeric_dtype(ablation_df[var])
+            
+            if is_numeric:
+                sns.lineplot(data=ablation_df, x=var, y=m, hue="algorithm", marker="o", errorbar=None)
+            else:
+                sns.barplot(data=ablation_df, x=var, y=m, hue="algorithm", errorbar=None)
+                
+            plt.title(f"Ablation Effect of {var} on {m.upper()}")
+            plt.ylabel(m.upper())
+            plt.xlabel(var.replace("_", " ").title())
+            plt.legend(title="Algorithm", bbox_to_anchor=(1.05, 1), loc='upper left')
             plt.tight_layout()
-            plt.savefig(out_dir / f"failure_cycles_feedback_{m}.png", dpi=300)
+            
+            # Save into the analysis plots directory
+            plt.savefig(out_dir / f"ablation_{var}_{m}.png", dpi=300)
             plt.close()
 
 
@@ -155,17 +114,11 @@ def main() -> None:
 
     sns.set_theme(style="whitegrid", palette="muted")
 
-    print("Generating Algorithm Comparisons...")
+    print("Generating Algorithm Comparisons (General Case)...")
     plot_algorithm_comparison(df, out_dir)
 
-    print("Generating Sensitivity Analysis...")
-    plot_sensitivity_analysis(df, out_dir)
-
-    print("Generating SCM Comparisons...")
-    plot_scm_comparison(df, out_dir)
-
-    print("Generating Failure Mode Analysis...")
-    plot_failure_modes(df, out_dir)
+    print("Generating 10 Ablation Variable Plots...")
+    plot_ablation_studies(df, out_dir)
 
     print(f"Analysis complete. All figures saved in {out_dir}")
 
